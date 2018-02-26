@@ -9,7 +9,6 @@
     | VerticalState
     | HorizontalState
     | ActiveState
-    | CommentState
     | LiteralState
     | MathState
     | HeaderContentState
@@ -40,7 +39,6 @@
   let next_state  : lexer_state ref = ref ProgramState
   let first_state : lexer_state ref = ref ProgramState
   let after_literal_state : lexer_state ref = ref HorizontalState
-  let after_comment_state : lexer_state ref = ref HorizontalState
 
   let ignore_space : bool ref = ref true
   let openqtdepth : int ref = ref 0
@@ -134,9 +132,7 @@ let mathsymbol = ( '+' | '-' | '*' | '/' | ':' | '=' | '<' | '>' | '~' | '\'' | 
 
 rule progexpr = parse
   | "%" {
-      after_comment_state := ProgramState;
-      next_state := CommentState;
-      IGNORED
+      comment lexbuf
     }
   | ("@" identifier ":") {
       let pos = get_pos lexbuf in
@@ -314,9 +310,7 @@ rule progexpr = parse
 
 and vertexpr = parse
   | "%" {
-      after_comment_state := VerticalState;
-      next_state := CommentState;
-      IGNORED
+      comment lexbuf
     }
   | (break | space)* {
       increment_line_for_each_break lexbuf (Lexing.lexeme lexbuf);
@@ -375,10 +369,8 @@ and vertexpr = parse
 
 and horzexpr = parse
   | "%" {
-      after_comment_state := HorizontalState;
       ignore_space := true;
-      next_state := CommentState;
-      IGNORED
+      comment lexbuf
     }
   | ((break | space)* "{") {
       increment_line_for_each_break lexbuf (Lexing.lexeme lexbuf);
@@ -485,9 +477,7 @@ and mathexpr = parse
   | space { mathexpr lexbuf }
   | break { increment_line lexbuf; mathexpr lexbuf }
   | "%" {
-      after_comment_state := MathState;
-      next_state := CommentState;
-      IGNORED
+      comment lexbuf
     }
   | "!{" {
       push MtoH;
@@ -561,9 +551,7 @@ and mathexpr = parse
 
 and active = parse
   | "%" {
-      after_comment_state := ActiveState;
-      next_state := CommentState;
-      IGNORED
+      comment lexbuf
     }
   | space { active lexbuf }
   | break { increment_line lexbuf; active lexbuf }
@@ -667,8 +655,14 @@ and literal = parse
 and comment = parse
   | break {
       increment_line lexbuf;
-      next_state := !after_comment_state;
-      IGNORED
+      match !next_state with
+      | ProgramState    -> progexpr lexbuf
+      | VerticalState   -> vertexpr lexbuf
+      | HorizontalState -> horzexpr lexbuf
+      | ActiveState     -> active lexbuf
+      | LiteralState    -> literal lexbuf
+      | MathState       -> mathexpr lexbuf
+      | HeaderContentState -> headercontent lexbuf
     }
   | eof { EOI }
   | _ { comment lexbuf }
@@ -692,7 +686,6 @@ and headercontent = parse
       | VerticalState   -> vertexpr lexbuf
       | HorizontalState -> horzexpr lexbuf
       | ActiveState     -> active lexbuf
-      | CommentState    -> comment lexbuf
       | LiteralState    -> literal lexbuf
       | MathState       -> mathexpr lexbuf
       | HeaderContentState -> headercontent lexbuf
