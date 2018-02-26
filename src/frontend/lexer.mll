@@ -680,73 +680,13 @@ and headercontent = parse
 
 {
   let rec cut_token lexbuf =
-    let output =
-      match !next_state with
-      | ProgramState    -> progexpr lexbuf
-      | VerticalState   -> vertexpr lexbuf
-      | HorizontalState -> horzexpr lexbuf
-      | ActiveState     -> active lexbuf
-      | LiteralState    -> literal lexbuf
-      | MathState       -> mathexpr lexbuf
-      | HeaderContentState -> headercontent lexbuf
-    in
-(*
-    (* begin: for debug *)
-    let () = PrintForDebug.lexerE (
-      match output with
-      | VERTCMD(_, cs) -> "VCMD(" ^ cs ^ ")"
-      | HORZCMD(_, cs) -> "HCMD(" ^ cs ^ ")"
-      | BHORZGRP(_)    -> "{ (BHORZGRP)"
-      | EHORZGRP(_)    -> "} (EHORZGRP)"
-      | OPENHORZ(_)    -> "{ (OPENHORZ)"
-      | CLOSEHORZ(_)   -> "} (CLOSEHORZ)"
-      | BVERTGRP(_)    -> "< (BVERTGRP)"
-      | EVERTGRP(_)    -> "> (EVERTGRP)"
-      | OPENVERT(_)    -> "'< (OPENVERT)"
-      | CLOSEVERT(_)   -> "> (CLOSEVERT)"
-      | OPENPROG(_)    -> "( (OPENPROG)"
-      | CLOSEPROG(_)   -> ") (CLOSEPROG)"
-      | END(_)         -> "; (END)"
-      | ENDACTIVE(_)   -> "; (ENDACTIVE)"
-      | CHAR(_, s)     -> "\"" ^ s ^ "\""
-      | SPACE(_)       -> "SPACE"
-      | BREAK(_)       -> "BREAK"
-      | EOI            -> "EOI"
-      | LETHORZ(_)     -> "let-inline"
-      | LETVERT(_)     -> "let-block"
-      | VAR(_, v)      -> "VAR(" ^ v ^ ")"
-      | DEFEQ(_)       -> "="
-      | BAR(_)         -> "|"
-      | LPAREN(_)      -> "("
-      | RPAREN(_)      -> ")"
-      | COMMA(_)       -> ","
-      | LETNONREC(_)   -> "let"
-      | LETREC(_)      -> "let-rec"
-      | CONTROLS(_)    -> "controls"
-      | LETAND(_)      -> "and"
-      | PATHLINE(_)    -> "--"
-      | PATHCURVE(_)   -> ".."
-      | CYCLE(_)       -> "cycle"
-      | BPATH(_)       -> "<["
-      | EPATH(_)       -> "]>"
-      | BMATHGRP(_)    -> "BMATHGRP"
-      | EMATHGRP(_)    -> "EMATHGRP"
-      | OPENMATH(_)    -> "${ (OPENMATH)"
-      | CLOSEMATH(_)   -> "} (CLOSEMATH)"
-      | MATHCHAR(_, s) -> "MATHCHAR(" ^ s ^ ")"
-      | SUBSCRIPT(_)   -> "_ (SUBSCRIPT)"
-      | SUPERSCRIPT(_) -> "^ (SUPERSCRIPT)"
-
-      | BINOP_PLUS(_, v)
-      | BINOP_MINUS(_, v)
-        -> "BIN(" ^ v ^ ")"
-
-      | _              -> "_"
-    ) in
-    (* end: for debug *)
-*)
-      match output with
-      | IGNORED -> cut_token lexbuf
-      | _       -> output
+    match !next_state with
+    | ProgramState    -> progexpr lexbuf
+    | VerticalState   -> vertexpr lexbuf
+    | HorizontalState -> horzexpr lexbuf
+    | ActiveState     -> active lexbuf
+    | LiteralState    -> literal lexbuf
+    | MathState       -> mathexpr lexbuf
+    | HeaderContentState -> headercontent lexbuf
 
 }
