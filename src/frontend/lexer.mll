@@ -10,7 +10,6 @@
     | HorizontalState
     | ActiveState
     | MathState
-    | HeaderContentState
 
   type transition =
     | HtoV        (* -- inline  -> block   (with "<"   ) -- *)
@@ -137,16 +136,12 @@ rule progexpr = parse
   | "%" {
       comment lexbuf
     }
-  | ("@" identifier ":") {
+  | ("@" (identifier as headertype) ":" (" "*) (nonbreak* as content) (break | eof)) {
       let pos = get_pos lexbuf in
-      let tok =
-        match Lexing.lexeme lexbuf with
-        | "@require:" -> HEADER_REQUIRE(pos)
-        | "@import:"  -> HEADER_IMPORT(pos)
-        | other       -> raise (LexError(pos, "undefined header token '" ^ other ^ "'"))
-      in
-      next_state := HeaderContentState;
-      tok
+      match headertype with
+      | "require" -> HEADER_REQUIRE(pos, content)
+      | "import"  -> HEADER_IMPORT(pos, content)
+      | _         -> raise (LexError(pos, "undefined header type '" ^ headertype ^ "'"))
     }
   | space { progexpr lexbuf }
   | break {
@@ -666,21 +661,9 @@ and comment = parse
       | HorizontalState -> horzexpr lexbuf
       | ActiveState     -> active lexbuf
       | MathState       -> mathexpr lexbuf
-      | HeaderContentState -> headercontent lexbuf
     }
   | eof { EOI }
   | _ { comment lexbuf }
-
-and headercontent = parse
-  | (" "*) (nonbreak+ as content) break {
-      increment_line lexbuf;
-      next_state := ProgramState;
-      HEADER_CONTENT(get_pos lexbuf, content)
-    }
-  | _ {
-      let tok = Lexing.lexeme lexbuf in
-      report_error lexbuf ("unexpected token '" ^ tok ^ "' in a header content")
-    }
 
 {
   let rec cut_token lexbuf =
@@ -690,6 +673,5 @@ and headercontent = parse
     | HorizontalState -> horzexpr lexbuf
     | ActiveState     -> active lexbuf
     | MathState       -> mathexpr lexbuf
-    | HeaderContentState -> headercontent lexbuf
 
 }
