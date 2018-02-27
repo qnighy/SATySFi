@@ -9,7 +9,6 @@
     | VerticalState
     | HorizontalState
     | ActiveState
-    | LiteralState
     | MathState
     | HeaderContentState
 
@@ -41,7 +40,9 @@
   let after_literal_state : lexer_state ref = ref HorizontalState
 
   let ignore_space : bool ref = ref true
-  let openqtdepth : int ref = ref 0
+  let quote_range : Range.t ref = ref (Range.dummy "")
+  let quote_length : int ref = ref 0
+  let literal_buffer : Buffer.t = Buffer.create 256
   let stack : transition Stack.t = Stack.create ()
 
   let get_pos lexbuf =
@@ -90,7 +91,9 @@
       first_state := state;
       next_state := !first_state;
       ignore_space := true;
-      openqtdepth := 0;
+      quote_range := Range.dummy "";
+      quote_length := 0;
+      literal_buffer |> Buffer.clear;
       stack |> Stack.clear;
     end
 
@@ -202,10 +205,10 @@ rule progexpr = parse
   | ".." { PATHCURVE(get_pos lexbuf) }
   | "--" { PATHLINE(get_pos lexbuf) }  (* -- prior to BINOP_MINUS -- *)
   | "`"+ {
-      openqtdepth := String.length (Lexing.lexeme lexbuf);
-      after_literal_state := ProgramState;
-      next_state := LiteralState;
-      OPENQT(get_pos lexbuf)
+      quote_range := get_pos lexbuf;
+      quote_length := String.length (Lexing.lexeme lexbuf);
+      literal_buffer |> Buffer.clear;
+      literal lexbuf
     }
   | ("\\" (identifier | constructor)) {
       let tok = Lexing.lexeme lexbuf in HORZCMD(get_pos lexbuf, tok)
@@ -452,10 +455,10 @@ and horzexpr = parse
     }
   | ((break | space)* ("`"+ as openqtstr)) {
       increment_line_for_each_break lexbuf (Lexing.lexeme lexbuf);
-      openqtdepth := String.length openqtstr;
-      after_literal_state := HorizontalState;
-      next_state := LiteralState;
-      OPENQT(get_pos lexbuf)
+      quote_range := get_pos lexbuf;
+      quote_length := String.length openqtstr;
+      literal_buffer |> Buffer.clear;
+      literal lexbuf
     }
   | "${" {
       push HtoM;
@@ -610,15 +613,6 @@ and active = parse
             end
         | _    -> report_error lexbuf "BUG; this cannot happen"
     }
-(*
-  | "`"+ {
-      openqtdepth := String.length (Lexing.lexeme lexbuf);
-      ignore_space := false;
-      after_literal_state := HorizontalState;
-      next_state := LiteralState;
-      OPENQT(get_pos lexbuf)
-    }
-*)
   | ";" {
       let pos = get_pos lexbuf in
       let trs = pop lexbuf "BUG; this cannot happen" in
@@ -639,18 +633,29 @@ and literal = parse
   | "`"+ {
       let tok = Lexing.lexeme lexbuf in
       let len = String.length tok in
-        if len < !openqtdepth then
-          CHAR(get_pos lexbuf, tok)
-        else if len > !openqtdepth then
+        if len < !quote_length then begin
+          Buffer.add_string literal_buffer tok;
+          literal lexbuf
+        end else if len > !quote_length then
           report_error lexbuf "literal area was closed with too many '`'s"
         else
-          begin next_state := !after_literal_state; CLOSEQT(get_pos lexbuf) end
+          let pos = Range.unite !quote_range (get_pos lexbuf) in
+          LITERAL(pos, Buffer.contents literal_buffer)
     }
-  | break { increment_line lexbuf; CHAR(get_pos lexbuf, "\n") }
+  | break {
+      let tok = Lexing.lexeme lexbuf in
+      increment_line lexbuf;
+      Buffer.add_string literal_buffer tok;
+      literal lexbuf
+    }
   | eof {
       report_error lexbuf "unexpected end of input while reading literal area"
     }
-  | _ { let tok = Lexing.lexeme lexbuf in CHAR(get_pos lexbuf, tok) }
+  | _ {
+      let tok = Lexing.lexeme lexbuf in
+      Buffer.add_string literal_buffer tok;
+      literal lexbuf
+    }
 
 and comment = parse
   | break {
@@ -660,7 +665,6 @@ and comment = parse
       | VerticalState   -> vertexpr lexbuf
       | HorizontalState -> horzexpr lexbuf
       | ActiveState     -> active lexbuf
-      | LiteralState    -> literal lexbuf
       | MathState       -> mathexpr lexbuf
       | HeaderContentState -> headercontent lexbuf
     }
@@ -685,7 +689,6 @@ and headercontent = parse
     | VerticalState   -> vertexpr lexbuf
     | HorizontalState -> horzexpr lexbuf
     | ActiveState     -> active lexbuf
-    | LiteralState    -> literal lexbuf
     | MathState       -> mathexpr lexbuf
     | HeaderContentState -> headercontent lexbuf
 
