@@ -126,7 +126,8 @@ let mathsymbol = ( '+' | '-' | '*' | '/' | ':' | '=' | '<' | '>' | '~' | '\'' | 
 
 rule progexpr = parse
   | "%" {
-      comment lexbuf
+      comment lexbuf;
+      progexpr lexbuf
     }
   | ("@" (identifier as headertype) ":" (" "*) (nonbreak* as content) (break | eof)) {
       let pos = get_pos lexbuf in
@@ -286,7 +287,8 @@ rule progexpr = parse
 
 and vertexpr = parse
   | "%" {
-      comment lexbuf
+      comment lexbuf;
+      vertexpr lexbuf
     }
   | (break | space)* {
       increment_line_for_each_break lexbuf (Lexing.lexeme lexbuf);
@@ -337,7 +339,8 @@ and vertexpr = parse
 and horzexpr = parse
   | "%" {
       ignore_space := true;
-      comment lexbuf
+      comment lexbuf;
+      horzexpr lexbuf
     }
   | ((break | space)* "{") {
       increment_line_for_each_break lexbuf (Lexing.lexeme lexbuf);
@@ -434,7 +437,8 @@ and mathexpr = parse
   | space { mathexpr lexbuf }
   | break { increment_line lexbuf; mathexpr lexbuf }
   | "%" {
-      comment lexbuf
+      comment lexbuf;
+      mathexpr lexbuf
     }
   | "!{" {
       push HorizontalState;
@@ -500,7 +504,8 @@ and mathexpr = parse
 
 and active = parse
   | "%" {
-      comment lexbuf
+      comment lexbuf;
+      active lexbuf
     }
   | space { active lexbuf }
   | break { increment_line lexbuf; active lexbuf }
@@ -576,14 +581,8 @@ and literal = parse
 and comment = parse
   | break {
       increment_line lexbuf;
-      match next_state () with
-      | ProgramState    -> progexpr lexbuf
-      | VerticalState   -> vertexpr lexbuf
-      | HorizontalState -> horzexpr lexbuf
-      | ActiveState     -> active lexbuf
-      | MathState       -> mathexpr lexbuf
     }
-  | eof { EOI }
+  | eof { () }
   | _ { comment lexbuf }
 
 {
