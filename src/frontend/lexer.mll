@@ -137,6 +137,7 @@ rule progexpr = parse
     }
   | ("@" (identifier as headertype) ":" (" "*) (nonbreak* as content) (break | eof)) {
       let pos = get_pos lexbuf in
+      increment_line lexbuf;
       match headertype with
       | "require" -> HEADER_REQUIRE(pos, content)
       | "import"  -> HEADER_IMPORT(pos, content)
