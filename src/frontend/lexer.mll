@@ -26,7 +26,6 @@
     | ActiveState (* active mode *)
     | MathState (* math mode *)
 
-  let ignore_space : bool ref = ref true
   let quote_range : Range.t ref = ref (Range.dummy "")
   let quote_length : int ref = ref 0
   let literal_buffer : Buffer.t = Buffer.create 256
@@ -80,7 +79,6 @@
 
   let initialize state =
     begin
-      ignore_space := true;
       quote_range := Range.dummy "";
       quote_length := 0;
       literal_buffer |> Buffer.clear;
@@ -163,7 +161,7 @@ rule progexpr = parse
   | ";" { LISTPUNCT(get_pos lexbuf) }
   | "{" {
       push HorizontalState;
-      ignore_space := true;
+      skip_spaces lexbuf;
       BHORZGRP(get_pos lexbuf)
     }
   | "'<" {
@@ -320,12 +318,11 @@ and vertexpr = parse
   | ">" {
       let pos = get_pos lexbuf in
       pop lexbuf "too many closing";
-      ignore_space := false;
       EVERTGRP(pos)
     }
   | "{" {
       push HorizontalState;
-      ignore_space := true;
+      skip_spaces lexbuf;
       BHORZGRP(get_pos lexbuf)
     }
   | eof {
@@ -338,21 +335,20 @@ and vertexpr = parse
 
 and horzexpr = parse
   | "%" {
-      ignore_space := true;
       comment lexbuf;
+      skip_spaces lexbuf;
       horzexpr lexbuf
     }
   | ((break | space)* "{") {
       increment_line_for_each_break lexbuf (Lexing.lexeme lexbuf);
       push HorizontalState;
-      ignore_space := true;
+      skip_spaces lexbuf;
       BHORZGRP(get_pos lexbuf)
     }
   | ((break | space)* "}") {
       increment_line_for_each_break lexbuf (Lexing.lexeme lexbuf);
       let pos = get_pos lexbuf in
       pop lexbuf "too many closing";
-      ignore_space := false;
       EHORZGRP(pos)
     }
   | ((break | space)* "<") {
@@ -362,21 +358,21 @@ and horzexpr = parse
     }
   | ((break | space)* "|") {
       increment_line_for_each_break lexbuf (Lexing.lexeme lexbuf);
-      ignore_space := true;
+      skip_spaces lexbuf;
       SEP(get_pos lexbuf)
     }
   | break {
       increment_line lexbuf;
-      if !ignore_space then horzexpr lexbuf else
-        begin ignore_space := true; BREAK(get_pos lexbuf) end
+      skip_spaces lexbuf;
+      BREAK(get_pos lexbuf)
     }
   | space {
-      if !ignore_space then horzexpr lexbuf else
-        begin ignore_space := true; SPACE(get_pos lexbuf) end
+      skip_spaces lexbuf;
+      SPACE(get_pos lexbuf)
     }
   | ((break | space)* (item as itemstr)) {
       increment_line_for_each_break lexbuf (Lexing.lexeme lexbuf);
-      ignore_space := true;
+      skip_spaces lexbuf;
       ITEM(get_pos lexbuf, String.length itemstr)
     }
   | ("#" (identifier as varnm)) {
@@ -407,7 +403,6 @@ and horzexpr = parse
   | ("\\" symbol) {
       let tok = String.sub (Lexing.lexeme lexbuf) 1 1 in
         begin
-          ignore_space := false;
           CHAR(get_pos lexbuf, tok)
         end
     }
@@ -427,7 +422,6 @@ and horzexpr = parse
         report_error lexbuf "unexpected end of input while reading an inline text area"
     }
   | str+ {
-      ignore_space := false;
       let tok = Lexing.lexeme lexbuf in CHAR(get_pos lexbuf, tok)
     }
 
@@ -442,7 +436,7 @@ and mathexpr = parse
     }
   | "!{" {
       push HorizontalState;
-      ignore_space := true;
+      skip_spaces lexbuf;
       BHORZGRP(get_pos lexbuf);
     }
   | "!<" {
@@ -468,7 +462,6 @@ and mathexpr = parse
   | "}" {
       let pos = get_pos lexbuf in
       pop lexbuf "too many closing";
-      ignore_space := false;
       EMATHGRP(pos)
     }
   | "^" { SUPERSCRIPT(get_pos lexbuf) }
@@ -527,7 +520,7 @@ and active = parse
       let pos = get_pos lexbuf in
       pop lexbuf "BUG; this cannot happen";
       push HorizontalState;
-      ignore_space := true;
+      skip_spaces lexbuf;
       BHORZGRP(pos)
     }
   | "<" {
@@ -539,7 +532,6 @@ and active = parse
   | ";" {
       let pos = get_pos lexbuf in
       pop lexbuf "BUG; this cannot happen";
-      ignore_space := false;
       ENDACTIVE(pos)
     }
   | eof {
@@ -584,6 +576,20 @@ and comment = parse
     }
   | eof { () }
   | _ { comment lexbuf }
+
+and skip_spaces = parse
+  | break {
+      increment_line lexbuf;
+      skip_spaces lexbuf
+    }
+  | space {
+      skip_spaces lexbuf
+    }
+  | "%" {
+      comment lexbuf;
+      skip_spaces lexbuf
+    }
+  | "" { () }
 
 {
   let rec cut_token lexbuf =
