@@ -36,7 +36,6 @@
 
   let next_state  : lexer_state ref = ref ProgramState
   let first_state : lexer_state ref = ref ProgramState
-  let after_literal_state : lexer_state ref = ref HorizontalState
 
   let ignore_space : bool ref = ref true
   let quote_range : Range.t ref = ref (Range.dummy "")
