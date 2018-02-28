@@ -797,7 +797,6 @@ nxbot:
   | opn=LPAREN; utast=nxlet; COMMA; tup=tuple; cls=RPAREN { make_standard (Tok opn) (Tok cls) (UTTupleCons(utast, tup)) }
   | opn=BHORZGRP; utast=sxsep; cls=EHORZGRP      { make_standard (Tok opn) (Tok cls) (extract_main utast) }
   | opn=BVERTGRP; utast=vxblock; cls=EVERTGRP    { make_standard (Tok opn) (Tok cls) (extract_main utast) }
-  (* | opn=OPENQT; strlst=list(str); cls=CLOSEQT    { make_standard (Tok opn) (Tok cls) (omit_spaces (String.concat "" strlst)) } *)
   | tok=LITERAL                                  { let (rng, str) = tok in make_standard (Tok rng) (Tok rng) (omit_spaces str) }
   | opn=BLIST; cls=ELIST                         { make_standard (Tok opn) (Tok cls) UTEndOfList }
   | opn=BLIST; utast=nxlist; cls=ELIST           { make_standard (Tok opn) (Tok cls) (extract_main utast) }
@@ -976,8 +975,6 @@ patbot: /* -> Types.untyped_pattern_tree */
   | LPAREN patas RPAREN                { make_standard (Tok $1) (Tok $3) (extract_main $2) }
   | LPAREN patas COMMA pattuple RPAREN { make_standard (Tok $1) (Tok $5) (UTPTupleCons($2, $4)) }
   | BLIST ELIST                        { make_standard (Tok $1) (Tok $2) UTPEndOfList }
-  (* | opn=OPENQT; strlst=list(str); cls=CLOSEQT {
-        let rng = make_range (Tok opn) (Tok cls) in (rng, UTPStringConstant(rng, omit_spaces (String.concat "" strlst))) } *)
   | tok=LITERAL                        { let (rng, str) = tok in make_standard (Tok rng) (Tok rng) (UTPStringConstant(rng, omit_spaces str)) }
 ;
 pattuple: /* -> untyped_pattern_tree */
@@ -1140,11 +1137,6 @@ narg:
         UTOptionalArgument(make_standard (Tok opn) (Tok cls) (extract_main utast))
       }
   | rng=OMISSION { UTOmission(rng) }
-;
-str:
-  | chartok=CHAR { let (rng, c) = chartok in c }
-  | BREAK        { "\n" }
-  | SPACE        { " " }
 ;
 sargs:
   | rng=ENDACTIVE             { (rng, []) }
